@@ -8,45 +8,44 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```{r}
-library(dplyr)
-library(stringr)
-library(anytime)
-```
-
-```{r}
-raw <- read.csv("raw_yelp_review_data.csv")
-```
-
-```{r}
-
-```
-
-
-```{r}
-raw <- raw %>%
-  mutate(rating = as.numeric(substr(raw$star_rating, 1, 2)),
-         rating.level = case_when(rating == 5 ~ "Positive",
-                                  rating == 4 ~ "Neutral",
-                                  rating <= 3 ~ "Bad"),
-         length = nchar(as.character(raw$full_review_text)),
-         num.exclamations = str_count(raw$full_review_text, "!"),
-         num.questions = str_count(raw$full_review_text, "\\?")
-         )
-
-data <- raw
-```
-
-```{r}
+```{r, include=FALSE}
+library("dplyr")
+library("stringr")
+library("anytime")
 library("tm")
 library("SnowballC")
 library("wordcloud")
 library("RColorBrewer")
 library("syuzhet")
 library("ggplot2")
+library("randomForest")
+library("randomForestExplainer")
+library("caret")
+library("knitr")
 ```
 
-```{r}
+```{r load data, include=FALSE}
+raw <- read.csv("raw_yelp_review_data.csv")
+```
+
+```{r mutate, include=FALSE}
+raw <- raw %>%
+  mutate(rating = as.factor(substr(raw$star_rating, 1, 2)),
+         rating.level = as.factor(case_when(as.numeric(rating) == 5 ~ "Positive",
+                                  as.numeric(rating) == 4 ~ "Neutral",
+                                  as.numeric(rating) <= 3 ~ "Bad")),
+         length = nchar(as.character(raw$full_review_text)),
+         num.exclamations = str_count(raw$full_review_text, "!"),
+         num.questions = str_count(raw$full_review_text, "\\?")
+         )
+data <- raw
+```
+
+### INTRO
+
+
+
+```{r text, include=FALSE}
 data$full_review_text <- as.character(data$full_review_text)
 text <- data$full_review_text
 text <- tolower(text)
@@ -57,41 +56,204 @@ text <- stripWhitespace(text)
 text <- stemDocument(text)
 data$full_review_text <- text
 
-get_nrc_sentiment(text)[0]
+corpus <- Corpus(VectorSource(data$full_review_text)) # turn into corpus
+
+tdm <- TermDocumentMatrix(corpus) # create tdm from the corpus
+
+top_terms <- findFreqTerms(tdm,1000)
+
+# sort(top_terms)
+
+data <- data %>%
+  mutate(always = case_when(grepl("alway", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         austin = case_when(grepl("austin", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         back = case_when(grepl("back", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         barista = case_when(grepl("barista", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         checkin = case_when(grepl("checkin", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         coffee = case_when(grepl("coff", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         come = case_when(grepl("come", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         day = case_when(grepl("day", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         definite = case_when(grepl("definit", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         drink = case_when(grepl("drink", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         flavor = case_when(grepl("flavor", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         food = case_when(grepl("food", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         friend = case_when(grepl("friend", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         get = case_when(grepl("get", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         good = case_when(grepl("good", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         got = case_when(grepl("got", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         great = case_when(grepl("great", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         ice = case_when(grepl("ice", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         latte = case_when(grepl("latt", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         like = case_when(grepl("like", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         little = case_when(grepl("littl", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         look = case_when(grepl("look", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         lot = case_when(grepl("lot", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         love = case_when(grepl("love", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         nice = case_when(grepl("nice", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         order = case_when(grepl("order", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         park = case_when(grepl("park", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         people = case_when(grepl("peopl", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         place = case_when(grepl("place", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         pretty = case_when(grepl("pretti", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         really = case_when(grepl("realli", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         seat = case_when(grepl("seat", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         service = case_when(grepl("servic", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         shop = case_when(grepl("shop", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         spot = case_when(grepl("spot", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         staff = case_when(grepl("staff", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         sweet = case_when(grepl("sweet", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         table = case_when(grepl("tabl", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         taste = case_when(grepl("tast", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         tea = case_when(grepl("tea", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         time = case_when(grepl("time", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         try = case_when(grepl("tri", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         want = case_when(grepl("want", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         well = case_when(grepl("well", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         will = case_when(grepl("will", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0),
+         work = case_when(grepl("work", full_review_text, fixed=TRUE) ~ 1,
+                             TRUE ~ 0)
+  )
+```
+
+```{r, echo=FALSE}
+kable(sort(top_terms), col.names = "Term", caption = "Terms with over 1000 instances in reviews")
+```
+
+### METHODOLOGY
+
+```{r}
+require(caTools)
+set.seed(123)
+data.model <- subset(data, select = -c(coffee_shop_name, full_review_text, star_rating, rating.level))
+
+sample = sample.split(data.model$rating, SplitRatio = .75)
+train = subset(data.model, sample == TRUE)
+test  = subset(data.model, sample == FALSE)
+dim(train)
+dim(test)
+
+rf <- randomForest(rating ~ ., train) 
+print(rf)
+
+
 
 ```
-data$full_review_text <- tm_map(data$full_review_text, content_transformer(tolower))
-# Remove numbers
-TextDoc <- tm_map(data, removeNumbers)
-# Remove english common stopwords
-TextDoc <- tm_map(data, removeWords, stopwords("english"))
-# Remove your own stop word
-# specify your custom stopwords as a character vector
-TextDoc <- tm_map(data, removeWords, c("s", "company", "team")) 
-# Remove punctuations
-TextDoc <- tm_map(data, removePunctuation)
-# Eliminate extra white spaces
-TextDoc <- tm_map(data, stripWhitespace)
-# Text stemming - which reduces words to their root form
-TextDoc <- tm_map(data, stemDocument)
+
+### RESULTS
+
+```{r}
+p1 <- predict(rf, train)
+confusionMatrix(p1, train$rating)
+plot(rf)
+
+p2 <- predict(rf, test)
+confusionMatrix(p2, test$rating)
+```
+
+
+
+
+```{r}
+plot(rf)
+
+hist(treesize(rf),
+     main = "No. of Nodes for the Trees",
+     col = "green")
+varImpPlot(rf,
+           sort = T,
+           n.var = 20,
+           main = "Top 20 - Variable Importance")
+importance(rf)
+
+
+```
+```{r}
+imp <- varImp(rf)
+impvar <- rownames(imp)[order(imp[, 1], decreasing=TRUE)]
+impvar <- impvar[1:10]
+
+
+for (i in seq_along(impvar)) {
+    partialPlot(rf, train, impvar[i], xlab=impvar[i],
+                main=paste("Partial Dependence on", impvar[i]))
+}
+
 
 ```
 
 
 ```{r}
-raw %>%
-  group_by(coffee_shop_name) %>%
-  summarise(avg_score = mean(rating),
-            sd = sd(rating),
-            gap = (max(rating) - min(rating)),
-            avg_length = mean(length),
-            num = n()) %>%
-  arrange(desc(avg_score))
+data %>%
+  group_by(rating) %>%
+  summarise(n = n(),
+            avg.length = mean(length),
+            excl = mean(num.exclamations),
+            place = mean(place),
+            great = mean(great),
+            coffee = mean(coffee),
+            quest = mean(num.questions),
+            try = mean(try),
+            checkin = mean(checkin),
+            friend = mean(friend),
+            get = mean(get)
+            ) 
+
 ```
+
+
+### DISCUSSION
+
 
 ```{r}
-
+importance_frame <- measure_importance(rf)
+save(importance_frame, file = "importance_frame.rda")
+load("importance_frame.rda")
+importance_frame
 ```
-
 
 
