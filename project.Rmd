@@ -1,7 +1,10 @@
 ---
-title: "Individual"
+title: "Individual Project: Analyzing Yelp Reviews"
 output: pdf_document
 ---
+
+There is plenty of work for me to complete with this individual project but I greatly appreciate any feedback on my work thus far!
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -41,9 +44,25 @@ raw <- raw %>%
 data <- raw
 ```
 
-### INTRO
+# INTRO 
+
+Yelp is a website where users can submit reviews of businesses. Reviews can help in a variety of ways: it can inform other people of the quality of the experience at said business, it can be a diary for the reviewer, and it can help local businesses receive valuable feedback. The reviews are from a 1-5 star scale system.
+
+One of the things that I find interesting is the idea that there might be certain indicators from a restaurant or reviewer that might be a factor of that particular rating. For example, maybe more excited reviewers and their reviews would overall be uplifing/positive, thus their reviews have more exclamation points. Critical reviews might be characterized by long rambling rants that point out all the flaws of one's experiences. Perhaps a more average or neutral review consistently talks about the quality of service. Thinking about what characterizes a 1 through 5 star review, I decided to look into text analysis and use a random forest model to parse out what are the most important identifiers that dictate review ratings.
 
 
+## DATA 
+
+Data comes from kaggle: https://www.kaggle.com/sripaadsrinivasan/yelp-coffee-reviews and is comprised of 7616 coffee shop reviews in the Austin area. 
+One of the dataset that comes within the kaggle is a ratings and sentiments csv; however, decoding each sentiment and what it meant with regards to the original review was too limiting. Therefore I did my own text analysis.
+
+Firstly, I took the original length, the number of exclamations, and the number of question marks and saved their results. 
+I then took all the text and the made them lowercase to help make analyzing them a bit more manageable.
+I removed excess numbers, punctuation, and stop words (which are words that are common in the English language such as "the" and "so"). From there, I identified "stems" of the remaining words. This stemming process is used in text analysis so that words such as "decorated" and "decorations" are identified as the same word, since they both would be used in a similar manner to describe the decor of the coffeehouse.
+
+From there, I found stem words with at least 10000 occurrences throughout the dataset. This 1000 in itself is arbitrary but since there are >7000 reviews, I believe that if words are in 1/7 of total reviews (including double counts), it should be considered in our model. 
+
+Here are those key stem words:
 
 ```{r text, include=FALSE}
 data$full_review_text <- as.character(data$full_review_text)
@@ -164,11 +183,23 @@ data <- data %>%
 kable(sort(top_terms), col.names = "Term", caption = "Terms with over 1000 instances in reviews")
 ```
 
+With these words in mind, the appearance of them in a review was indicated with a 1 and will subsequently be used in the model as a predictor variable. 
+
 ### METHODOLOGY
+
+A random forest model was used.
+
+A random forest was used instead of a logistic or a mulitnomial logistic/ordinal model because it is great for accuracy in classification, there are many predictor variables, and the key question I wanted to answer was: What are the most important elements when it comes to Yelp reviews.
+
+49 predictors were used, which included the key stem words (excluded some common words from the top terms list), exclamation and question marks, and the length of the review.
+
+
+
+
 
 ```{r}
 require(caTools)
-set.seed(123)
+set.seed(440)
 data.model <- subset(data, select = -c(coffee_shop_name, full_review_text, star_rating, rating.level))
 
 sample = sample.split(data.model$rating, SplitRatio = .75)
@@ -185,6 +216,34 @@ print(rf)
 ```
 
 ### RESULTS
+
+
+
+To get a semblance of how well our model fits, I made a training vs test set that performed decently well (about 57% on the test set).
+
+The 20 most important variables were:
+"length"
+"number of exclamations"
+"place"            
+"coffee"           
+"great"           
+"good"            
+"checkin"         
+"try"             
+"num.questions"    
+"get"             
+"friend"           
+"like"             
+"shop"             
+"ice"              
+"love"            
+"drink"            
+"austin"           
+"really"           
+"day"             
+"food" 
+
+
 
 ```{r}
 p1 <- predict(rf, train)
@@ -248,12 +307,19 @@ data %>%
 
 ### DISCUSSION
 
+To understand how these identified important terms are associated with ratings, a partial dependence plot was used. 
+*Generally, if a plot is positive, as the word appears in the review, it is associated with lower ratings. The opposite is true that if the plot appears negative, its presence in reviews is associated with higher ratings.
 
-```{r}
-importance_frame <- measure_importance(rf)
-save(importance_frame, file = "importance_frame.rda")
-load("importance_frame.rda")
-importance_frame
-```
+Here I will discuss more of why I believe certain words appear more promiently in certain types of reviews.
+
+
+
+
+
+I think to improve the model, I would want to think about "red/green flag words". The words that I chose in my analysis were the most common words because I wanted to see generally how certain wordings in peoples' reviews might be associated with the rating (for example, 5 star reviews will have more exclamation points and occurance of the word "love"). But there might be some words that weren't so common that might've uniquely been great proxies for ratings, especially at the extreme ends of the ratings system. For example, the word "horrible" is probably not used that many times, but when it is, it appears exclusively with 1 star ratings. 
+
+Also not entirely sure if random trees was the most solid way to go. I wanted to do something a bit more advanced than logistic regression or multinomial so this was me being a bit brave and also naive at wanting to take this approach. 
+
+
 
 
