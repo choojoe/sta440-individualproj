@@ -1,5 +1,6 @@
 ---
 title: "Individual Project: Analyzing Yelp Reviews"
+author: "Joe Choo - Fall 2021"
 output: pdf_document
 ---
 
@@ -27,6 +28,7 @@ library("broom")
 library("nnet")
 library("kableExtra")
 library("car")
+library("tinytex")
 ```
 
 ```{r load data, include=FALSE}
@@ -183,6 +185,8 @@ Then through a cleaning process, as well as a method known as "stemming," non-co
 
 Based on anecdotal usage of Yelp as well as some exploratory analysis, we hypothesize that negative reviews (3 stars or lower) will be associated with more characters and words related to service, neutral reviews (4 stars) will be associated with many nouns or descriptive words, and positive reviews (5 stars) will be associated with many action words as well as high usage of exclamation points.
 
+\newpage
+
 **Figure 1. Distribution of Exclamation Points by Rating**
 
 ```{r, echo=FALSE, warning=FALSE, fig.height = 3}
@@ -220,7 +224,6 @@ table1 <- data %>%
             ) 
 colnames(table1) <- c("Rating Level", "Reviews", "Barista", "Like","Love","Nice","Pretty","Service")
 kable(table1, digits = 3)
-
 ```
 
 As a precursor to our model and analysis, some words such as "barista", "like", "love", "nice", "pretty", and "service" were chosen to get a glimpse as to how these words are distributed in different types of reviews. In order to compare the frequency of these words, the percentage frequency of the word in that rating level was used. Service-related words such as "barista" and "service" were found at a higher rate in negative reviews. Interestingly, the positive descriptors of "like" and "pretty" were found at increasingly higher rates as the reviews turned more negative. Perhaps this might indicate other usage of these words such as "did not like" or "pretty awful."
@@ -239,19 +242,11 @@ Random Forest: This was used in the first rendition of the analysis and although
 
 For each of the logistic regression models, the rating was the response variable with a 1 indicating that the review was the rating of focus and a 0 otherwise. So in the first logistic model on predicting negative reviews, a 1 would be a review of rating 3 or less and a 0 otherwise. The length, number of exclamation points, and number of question marks were predictors as well as the 46 most common stem words identified in the text analysis.
 
-Conducting 3 logistic regression models allows us to compare each rating independently as opposed to in direct relation with each other (ie Negative to Neutral). This approach also allows us to identify significant variables for each of the rating level since some words might be more correlated with say a positive or negative rating than a neutral one. Additionally, because the comparisons can be done with more flexibility, identifying common significant words has meaningful interpretability. For example, if a word or review characteristic is deemed significant for positive and negative ratings, this most likely means that the word is a signifier of extremeness or a strong opinion, which might be helpful to identify when understanding reviews. The assumptions for logistic regression model were satisfied and are further outlined in Appendix. 
+Conducting 3 logistic regression models allows us to compare each rating independently as opposed to in direct relation with each other (ie Negative to Neutral). This approach also allows us to identify significant variables for each of the rating level since some words might be more correlated with say a positive or negative rating than a neutral one. Additionally, because the comparisons can be done with more flexibility, identifying common significant words has meaningful interpretability. For example, if a word or review characteristic is deemed significant for positive and negative ratings, this most likely means that the word is a signifier of extremeness or a strong opinion, which might be helpful to identify when understanding reviews. The assumptions for logistic regression model were satisfied and are further outlined in Appendix 2. 
 
-The mathematical form of the model is as follows:
+The mathematical form of the models are as follows:
 
-$$
-\begin{aligned}
-\log (P_{ij}/1-P_{ij}) = \beta_{0j} + \beta_{1j}*Length_{ij} +  \beta_{2j}*Exclamations_{ij} + \beta_{3j}*Questions_{ij} + \beta_{4...49j}*(\text{Word})_{ij} + (\epsilon_i)\\
-
-\\
-\text{where P is probability of }  review_{i} \text{ having a rating level} _j \text{ };(\epsilon_i) \text{ are commonly assumed to be i.i.d. and follow some specified distribution}
-\end{aligned}
-$$
-
+![](CodeCogsEqn.png)
 
 \newpage
 # Results
@@ -280,7 +275,6 @@ tidy.neutral <- tidy(model.neutral, exponentiate = TRUE)
 model.positive <- glm(rating.level ~ ., data = data.positive, family = binomial)
 tidy.positive <- tidy(model.positive, exponentiate = TRUE)
 
-tidy.positive
 rbind(tidy.negative, tidy.neutral, tidy.positive) %>%
   group_by(term) %>%
   dplyr::select(-statistic) %>% 
@@ -302,7 +296,7 @@ rbind(tidy.negative, tidy.neutral, tidy.positive) %>%
 ```
 
 
-The 3 logistic regression models' significant coefficients were put into 1 table but the full table can be found in Appendix. At a high level, 25 predictors (excluding intercepts) were identified as significant (at $\alpha$ = .05) in the Negative logistic regression model, 21 in the Neutral, and 23 in the Positive. The predictor variables of: length, exclamations, questions, always, austin, checkin, friend, great, love, pretty, and seat were all significant across the three models. Because the model output is exponentiated, whenever the estimate is greater than 1, the odds that the response variable is the rating of interest increases. Similarly, when the estimate is less than 1, the odds that the response variable is the rating of interest decreases.
+The 3 logistic regression models' significant coefficients were put into 1 table but the full table can be found in Appendix. At a high level, 25 predictors (excluding intercepts) were identified as significant in the Negative logistic regression model, 21 in the Neutral, and 23 in the Positive. The predictor variables of: length, exclamations, questions, always, austin, checkin, friend, great, love, pretty, and seat were all significant across the three models. Because the model output is exponentiated, whenever the estimate is greater than 1, the odds that the response variable is the rating of interest increases. Similarly, when the estimate is less than 1, the odds that the response variable is the rating of interest decreases.
 
 For the exclamation predictor, the 0.648 as the coefficient in the Negative Model can be interpretted as: for each exclamation present in a review, holding all else constant, the odds that the review rating is negative decreases by a factor of .648. On the opposite end however, for each exclamation present in a review, holding all else constant,the odds that the review rating is positive increases by a factor of 1.244.
 
@@ -326,29 +320,79 @@ Following our original hypotheses:
 
 
 We set out to analyze Yelp reviews and understand the differences in how negative, neutral, and positive ratings are given. Our models support the notion that Negative ratings (3 stars or less) were largely long rants that complained about service rather than the product; Neutral ratings were mellow, do not have many opinionated words, and were from the most active users via check-ins; and Positive ratings could be identified by the frequent usage of exclamation points, reference to their city (in this case Austin), and had strong positive words such as "love" and "will."
+
 Of course this analysis is only as good as the data, and while the methodology and justification for the logistic regression were outlined, there is still much limitation with the data. While focusing on one city has its benefits in terms of understanding local tastes, regional dialects may play a role into how the conclusions of this analysis can be extrapolated to other markets. Perhaps the assertion that the word "like" is associated with a decrease in odds of a negative rating, will not apply in California where the word "like" is used more frequently in everyday speech/written pattern. Additionally, the text analysis, while structured, does not take into account the nuances found in different connotations of the word. As per the discussion above, the word "pretty" can be used in both positive and negative contexts that is difficult to discern. Perhaps in future analyses, there can be ways to identify if a word is being used in a positive, neutral, or negative way depending on its place in a sentence. Lastly, the filtering of 1000 or more occurences is arbitrary and if possible, we would like to see all words and sentiments being taken into account in the model. The most common words were used to provide interpretability and simplicity to our models (since it would be difficult to put >100 words for each model); however, it would be just as interesting to find out if there are words characteristic of a certain level of rating. Maybe the word "hate" is exclusive to 1 or 2 star ratings which then can be a quick search word for users to filter out or filter in those reviews. Thinking further perhaps incorporating time data will be an informative layer in understanding the tastes of a population. The sudden increase in the word "oat" may signal a demand for oatmilk or nondairy options in coffee shops which businesses can respond to accordingly.
+
 Despite the limitations of our analysis and the desire to do more, the conclusions and methods utilized in this case study were quite informative and meaningful.
 
 
 
 \newpage
-## Appendix 1: Process of text analysis + terms 
+## References 
+
+1. Bialik, Carl (Sep 2018). Restaurant Ratings On Yelp Are Remarkably Consistent, No Matter Who’s Writing Them, When, And Where. Yelp Blog. Retrieved https://blog.yelp.com/news/restaurant-ratings-on-yelp-are-remarkably-consistent-no-matter-whos-writing-them-when-and-where/
+
+2. Chakfin, Max (Oct 2009). You've Been Yelped. Inc Magazine. Retrieved https://www.inc.com/magazine/20100201/youve-been-yelped.html
+
+3. Li, Y., Wang, Z., Yu, Z., Popularity Growth Analysis and Prediction on Yelp. Stanford University. Retrieved http://snap.stanford.edu/class/cs224w-2018/reports/CS224W-2018-56.pdf
+
+4. Luca, Michael (2011). Reviews, Reputation, and Revenue: The
+Case of Yelp.com. Harvard Business School. Retrieved https://www.hbs.edu/ris/Publication%20Files/12-016_a7e4a5a2-03f9-490d-b093-8f951238dba2.pdf
+
+5. Oheix, Jonathan (Dec 2018). Detecting bad customer reviews with NLP. Towards Data Science. Retrieved https://towardsdatascience.com/detecting-bad-customer-reviews-with-nlp-d8b36134dc7e
+
+6. Teh, P.L., Pak, I., Rayson, P., Piao, S. (Dec 2015). Sentiment Analysis Tools Should Take Account of the Number of Exclamation Marks!!!. IIWAS. Retrieved https://www.researchgate.net/publication/284390575_Sentiment_Analysis_Tools_Should_Take_Account_of_the_Number_of_Exclamation_Marks
+
+7. Yu, B., Zhou, J., Zhang, Y., Cao Y. Identifying Restaurant Features via Sentiment
+Analysis on Yelp Reviews. Center for Urban Science & Progress - New York University. Retrieved
+https://arxiv.org/pdf/1709.08698.pdf
+
+8. Zhang, Zhiwei (Dec 2017). Machine Learning and Visualization with Yelp Dataset. Medium. Retrieved https://medium.com/@zhiwei_zhang/final-blog-642fb9c7e781
+
+\newpage
+
+## Appendix 1: Process of text analysis and terms 
 
 
 After the creation of new variables length, exclamations, and questions, we took all the text and transformed them to lowercase to help make analyzing text a bit more manageable.
 We removed excess numbers, punctuation, and stop words (which are words that are common in the English language such as "the" and "so"). These stop words were from the tm package.
 Next, we identified "stems" of the remaining words. This stemming process is used in text analysis so that words such as "decorated" and "decorations" are identified as the same word, since they both would be used in a similar manner to describe the decor of the coffeehouse. From there, we identified stem words with at least 1000 occurrences throughout the dataset. This 1000 in itself is arbitrary but since there are >7000 reviews, we believed that if words are in 1/7 of total reviews (including double counts), it should be considered in our model. 
 
-Below are the 46 words with over 1000 instances
-```{r, echo=FALSE}
+On the next page are the 46 stem words with over 1000 occurrences in the data.
+```{r, echo=FALSE, warning=FALSE}
 kable(sort(top_terms), col.names = "Term", caption = "Terms with over 1000 instances in reviews")
 ```
 
 
 
 
-## Appendix Model Assumptions for Logistic Regression
-```{r}
+## Appendix 2 Model Assumptions for Logistic Regression
+
+
+Assumptions under logistic regression:
+
+1) The outcome is a binary or dichotomous variable: This assumption is satisfied as we created an indicator of success based on whether the rating level was the desired level in the respective model.
+
+2) Observations are independent: This assumption was not satisfied as we do not expect independence between Yelpers' reviews since users can view other reviews and thus be influenced in how they discuss and rate coffee shops. However, this not immediately present a big problem for our analysis due to the wide range in dates the reviews are pulled from as well as the large number of reviews in general.
+
+3) Linear relationship between the logit of the outcome and each predictor variables: this assumption is satisfied as seen in the Predictor Value vs Logit of Outcome plot. Though there appears to be some polynomial relationships, the relationship is largely linear and thus we consider the assumption satisfied.
+
+4) No influential values (extreme values or outliers) in the continuous predictors: this assumption is satisfied as the top 3 most influential points have relatively low Cook's distances in each of the models.
+
+5)  No high intercorrelations (i.e. multicollinearity) among the predictors: this assumption is satisfied via VIF analysis, which results in relatively low VIF values for each of the predictors.
+
+
+
+
+
+
+
+
+
+
+\newpage
+***Figure 3: Linear Relationship between Logit Outcome and Continuous Predictor Variables***
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
 assumptions.negative <- data.negative %>%
   dplyr::select(length, exclamations, questions) #selecting continuous predictors
 predictors.negative <- colnames(assumptions.negative)
@@ -395,44 +439,38 @@ ggplot(assumptions.positive, aes(logit, Predictor.value)) +
   ylab("Value of Predictor") + xlab("Logit Scale") + ggtitle("Predictor Value vs Logit of Outcome (Positive Model)")
 ```
 
-
-```{r}
+***Figure 4: Cook's Distance for Each Logistic Regression Model (Negative, Neutral, Positive)***
+```{r, echo=FALSE, warning=FALSE}
 t1 <- plot(model.negative, which = 4, id.n = 3, sub = "Logistic Regression Model (Negative)")
 data.negative <- augment(model.negative) %>% 
   mutate(index = 1:n()) 
 vif.negative <- vif(model.negative)
 t2 <- kable(vif.negative, digits = 3)
-t1
-t2
+
 
 t3 <- plot(model.neutral, which = 4, id.n = 3, sub = "Logistic Regression Model (Neutral)")
 data.neutral <- augment(model.neutral) %>% 
   mutate(index = 1:n()) 
 vif.neutral <- vif(model.neutral)
 t4 <- kable(vif.neutral, digits = 3)
-t3
-t4
+
 
 t5 <- plot(model.positive, which = 4, id.n = 3, sub = "Logistic Regression Model (Positive)")
 data.positive <- augment(model.positive) %>% 
   mutate(index = 1:n()) 
 vif.positive <- vif(model.positive)
 t6 <- kable(vif.positive, digits = 3)
-t5
+
+
+```
+***Table 4: VIF Analysis for Each Logistic Regression Model (Negative, Neutral, Positive)***
+```{r, echo=FALSE, warning=FALSE, message = FALSE}
+t2
+t4
 t6
 ```
 
-Assumptions under logistic regression:
 
-1) The outcome is a binary or dichotomous variable: This assumption is satisfied as we created an indicator of success based on whether the rating level was the desired level in the respective model.
-
-2) Observations are independent: This assumption was not satisfied as we do not expect independence between Yelpers' reviews since users can view other reviews and thus be influenced in how they discuss and rate coffee shops. However, this not immediately present a big problem for our analysis due to the wide range in dates the reviews are pulled from as well as the large number of reviews in general.
-
-3) Linear relationship between the logit of the outcome and each predictor variables: this assumption is satisfied as seen in the Predictor Value vs Logit of Outcome plot. Though there appears to be a slight polynomial relationship, the relationship is largely linear and thus we consider it satisfied.
-
-4) No influential values (extreme values or outliers) in the continuous predictors: this assumption is satisfied as the top 3 most influential points have relatively low Cook's distances.
-
-5)  No high intercorrelations (i.e. multicollinearity) among the predictors: this assumption is satisfied via VIF analysis, which results in relatively low VIF values for each of the predictors.
 
 
 
