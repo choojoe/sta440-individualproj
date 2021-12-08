@@ -28,7 +28,6 @@ library("broom")
 library("nnet")
 library("kableExtra")
 library("car")
-library("tinytex")
 ```
 
 ```{r load data, include=FALSE}
@@ -169,7 +168,7 @@ data$anyword <- rowSums(data[, 9:54])
 
 ***Background***
 
-Yelp is a website founded in 2004 where users can submit reviews of businesses. The reviews are from a 1-5 star scale system with 1 indicating the worst experience and 5 indicating the best experience. In these reviews, "Yelpers", can also write about their experiences and share photos from their trips to restaurants, coffeeshops, barbers, etc. These reviews are valuable in a variety of ways: they can inform other people of the quality of the experience at said business, they can be a diary for the reviewer to reflect on their experiences, and they can help local businesses receive valuable feedback. In fact, one study claimed that a one-star increase in Yelp rating led to a 5-9% increase in revenue in the Seattle area from 2004-2009 (Luca, 2011). With Yelp reviews being valuable to both customers and businesses, it is important to understand what aspects of a review are associated with negative, neutral, and positive ratings. Are certain words or ways to describe Yelper's experiences good predictors of their rating? Specifically, the interests of this study is to **analyze components of Yelp written reviews to understand the differences in how negative, neutral, and positive ratings are given.**
+Yelp is a website founded in 2004 where users can submit reviews of businesses. The reviews are from a 1-5 star scale system with 1 indicating the worst experience and 5 indicating the best experience. In these reviews, "Yelpers", can also write about their experiences and share photos from their trips to restaurants, coffeeshops, barbers, bars, or other personal services. These reviews are valuable in a variety of ways: they can inform other people of the quality of the experience at said business, they can be a diary for the reviewer to reflect on their experiences, and they can help local businesses receive valuable feedback. In fact, one study claimed that a one-star increase in Yelp rating led to a 5-9% increase in revenue in the Seattle area from 2004-2009 (Luca, 2011). With Yelp reviews being valuable to both customers and businesses, it is important to understand what aspects of a review are associated with negative, neutral, and positive ratings. Are certain words or ways to describe Yelper's experiences good predictors of their rating? Specifically, the interests of this study is to **analyze components of Yelp written reviews to understand the differences in how negative, neutral, and positive ratings are given.**
 
 
 ***Data***
@@ -196,7 +195,7 @@ ggplot(data, aes(x=rating.level, y=exclamations)) +
        y = 'Number of Exclamation Points') 
 ```
 
-Figure 1 displays the distribution of exclamation points in a given review separated by the 3 levels of ratings. We see that positive reviews have a higher median number of exclamation points as well as a greater frequency of high exclamation point reviews, with a maximum of 40 exclamation points in 1 review. This aligns with our hypothesis that positive reviews are generally more exciteable and therefore have more exclamation points.
+Figure 1 displays the distribution of exclamation points in a given review separated by the 3 levels of ratings. We see that positive reviews have a higher median number of exclamation points as well as a greater frequency of high exclamation point reviews, with a maximum of 76 exclamation points in 1 review. This aligns with our hypothesis that positive reviews are generally more exciteable and therefore have more exclamation points.
 
 **Figure 2. Length of Review by Rating**
 
@@ -238,7 +237,7 @@ Multinomial Logistic Regression: While a multinomial logistic regression could h
 
 Ordinal Logistic Regression: Similarly to the multinomial logistic regression, an ordinal logistic regression compares each level to the previous one. While inherently this might be useful to compare 1 star to 2 star to 3 star and so on, there is less application for the sake of our case study. Additionally, the ordinal logistic regression can indicate significant predictors overall but would not distinguish that X word is significantly correlated with negative reviews while Y word is significantly correlated with positive ones.
 
-Random Forest: This was used in the first rendition of the analysis and although the use of ML is powerful for categorization, there is limited interpretability. The random forest approach can allow for identification of "important" terms but the meaning of "important" is rather convoluted and does not provide insights to how a negative rating differs from a positive one. Therefore, opting for a more simpler and explainable model was preferred. 
+Random Forest: This was used in the first rendition of the analysis and although the use of ML is powerful for categorization, there is limited interpretability. The random forest approach can allow for identification of "important" terms but the meaning of "important" is rather convoluted and does not provide insights as to how a negative rating differs from a positive one. Therefore, opting for a more simpler and explainable model was preferred. 
 
 For each of the logistic regression models, the rating was the response variable with a 1 indicating that the review was the rating of focus and a 0 otherwise. So in the first logistic model on predicting negative reviews, a 1 would be a review of rating 3 or less and a 0 otherwise. The length, number of exclamation points, and number of question marks were predictors as well as the 46 most common stem words identified in the text analysis.
 
@@ -296,7 +295,7 @@ rbind(tidy.negative, tidy.neutral, tidy.positive) %>%
 ```
 
 
-The 3 logistic regression models' significant coefficients were put into 1 table but the full table can be found in Appendix. At a high level, 25 predictors (excluding intercepts) were identified as significant in the Negative logistic regression model, 21 in the Neutral, and 23 in the Positive. The predictor variables of: length, exclamations, questions, always, austin, checkin, friend, great, love, pretty, and seat were all significant across the three models. Because the model output is exponentiated, whenever the estimate is greater than 1, the odds that the response variable is the rating of interest increases. Similarly, when the estimate is less than 1, the odds that the response variable is the rating of interest decreases.
+The 3 logistic regression models' significant coefficients were put into 1 table but the full table can be found in Appendix 3. At a high level, 25 predictors (excluding intercepts) were identified as significant in the Negative logistic regression model, 21 in the Neutral, and 23 in the Positive. The predictor variables of: length, exclamations, questions, always, austin, checkin, friend, great, love, pretty, and seat were all significant across the three models. Because the model output is exponentiated, whenever the estimate is greater than 1, the odds that the response variable is the rating of interest increases. Similarly, when the estimate is less than 1, the odds that the response variable is the rating of interest decreases.
 
 For the exclamation predictor, the 0.648 as the coefficient in the Negative Model can be interpretted as: for each exclamation present in a review, holding all else constant, the odds that the review rating is negative decreases by a factor of .648. On the opposite end however, for each exclamation present in a review, holding all else constant,the odds that the review rating is positive increases by a factor of 1.244.
 
@@ -471,6 +470,23 @@ t6
 ```
 
 
+## Appendix 3: Full Model Outputs
 
-
-
+```{r, echo=FALSE, warning=FALSE, message = FALSE }
+rbind(tidy.negative, tidy.neutral, tidy.positive) %>%
+  group_by(term) %>%
+  dplyr::select(-statistic) %>% 
+  mutate(across(where(is.numeric), ~ round(.x, digits = 3))) %>%
+  mutate(p.value = ifelse(p.value < 0.001, "<0.001", sprintf("%0.3f", p.value))) %>%
+  select(term, estimate, std.error, p.value) %>%
+  kable(format = "latex", booktabs = T, longtable = T,
+      col.names = c("Term", "Estimate", "Standard Error",
+                      "P-Value"),
+      digits = 3, centering = FALSE,
+      align = "lrrr") %>%
+  row_spec(0, bold = TRUE) %>%
+  pack_rows("Negative Model", 1, 50, bold = T) %>%
+  pack_rows("Neutral Model", 51, 100, bold = T) %>%
+  pack_rows("Positive Model", 101, 150, bold = T) %>%
+  kable_styling(latex_options = c("repeat_header"))
+```
