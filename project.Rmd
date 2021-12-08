@@ -25,6 +25,9 @@ library("randomForest")
 library("randomForestExplainer")
 library("caret")
 library("knitr")
+library("broom")
+library("nnet")
+library("kableExtra")
 ```
 
 ```{r load data, include=FALSE}
@@ -36,22 +39,22 @@ raw <- raw %>%
   mutate(rating = as.factor(substr(raw$star_rating, 1, 2)),
          rating.level = as.factor(case_when(as.numeric(rating) == 5 ~ "Positive",
                                   as.numeric(rating) == 4 ~ "Neutral",
-                                  as.numeric(rating) <= 3 ~ "Bad")),
+                                  as.numeric(rating) <= 3 ~ "Negative")),
          length = nchar(as.character(raw$full_review_text)),
-         num.exclamations = str_count(raw$full_review_text, "!"),
-         num.questions = str_count(raw$full_review_text, "\\?")
+         exclamations = str_count(raw$full_review_text, "!"),
+         questions = str_count(raw$full_review_text, "\\?")
          )
 data <- raw
 ```
 
-# INTRO 
+# Intro
 
-Yelp is a website where users can submit reviews of businesses. Reviews can help in a variety of ways: it can inform other people of the quality of the experience at said business, it can be a diary for the reviewer, and it can help local businesses receive valuable feedback. The reviews are from a 1-5 star scale system.
+Yelp is a website where users can submit reviews of businesses. Reviews can help in a variety of ways: it can inform other people of the quality of the experience at said business, it can be a diary for the reviewer to reflect on their experiences, and it can help local businesses receive valuable feedback. The reviews are from a 1-5 star scale system with 1 indicating the worst review and 5 indicating the best.
 
-One of the things that I find interesting is the idea that there might be certain indicators from a restaurant or reviewer that might be a factor of that particular rating. For example, maybe more excited reviewers and their reviews would overall be uplifing/positive, thus their reviews have more exclamation points. Critical reviews might be characterized by long rambling rants that point out all the flaws of one's experiences. Perhaps a more average or neutral review consistently talks about the quality of service. Thinking about what characterizes a 1 through 5 star review, I decided to look into text analysis and use a random forest model to parse out what are the most important identifiers that dictate review ratings.
+One interesting idea that came up as an active user on Yelp was that there might be certain indicators from a restaurant or reviewer that might be a key factor of that particular rating. For example, maybe more excited reviewers and their reviews would overall be uplifing/positive, thus their reviews have more exclamation points. Critical reviews might be characterized by long rambling rants that point out all the flaws of one's experiences. Perhaps a more average or neutral review consistently talks about the quality of service. Thinking about what characterizes a 1 through 5 star review, I decided to look into text analysis and use a random forest model to parse out what are the most important identifiers that dictate review ratings.
 
 
-## DATA 
+## Data
 
 Data comes from kaggle: https://www.kaggle.com/sripaadsrinivasan/yelp-coffee-reviews and is comprised of 7616 coffee shop reviews in the Austin area. 
 One of the dataset that comes within the kaggle is a ratings and sentiments csv; however, decoding each sentiment and what it meant with regards to the original review was too limiting. Therefore I did my own text analysis.
@@ -185,9 +188,9 @@ kable(sort(top_terms), col.names = "Term", caption = "Terms with over 1000 insta
 
 With these words in mind, the appearance of them in a review was indicated with a 1 and will subsequently be used in the model as a predictor variable. 
 
-### METHODOLOGY
+### Methodology
 
-A random forest model was used.
+A logistic regression was used 
 
 A random forest was used instead of a logistic or a mulitnomial logistic/ordinal model because it is great for accuracy in classification, there are many predictor variables, and the key question I wanted to answer was: What are the most important elements when it comes to Yelp reviews.
 
@@ -198,20 +201,6 @@ A random forest was used instead of a logistic or a mulitnomial logistic/ordinal
 
 
 ```{r}
-require(caTools)
-set.seed(440)
-data.model <- subset(data, select = -c(coffee_shop_name, full_review_text, star_rating, rating.level))
-
-sample = sample.split(data.model$rating, SplitRatio = .75)
-train = subset(data.model, sample == TRUE)
-test  = subset(data.model, sample == FALSE)
-dim(train)
-dim(test)
-
-rf <- randomForest(rating ~ ., train) 
-print(rf)
-
-
 
 ```
 
@@ -219,89 +208,91 @@ print(rf)
 
 
 
-To get a semblance of how well our model fits, I made a training vs test set that performed decently well (about 57% on the test set).
-
-The 20 most important variables were:
-"length"
-"number of exclamations"
-"place"            
-"coffee"           
-"great"           
-"good"            
-"checkin"         
-"try"             
-"num.questions"    
-"get"             
-"friend"           
-"like"             
-"shop"             
-"ice"              
-"love"            
-"drink"            
-"austin"           
-"really"           
-"day"             
-"food" 
-
 
 
 ```{r}
-p1 <- predict(rf, train)
-confusionMatrix(p1, train$rating)
-plot(rf)
+data$anyword <- rowSums(data[, 9:54])
 
-p2 <- predict(rf, test)
-confusionMatrix(p2, test$rating)
+data %>%
+  group_by(rating.level) %>%
+  summarise(n = n(),
+            avg.length = mean(length),
+            any = mean(anyword)
+            ) 
+
 ```
 
 
-
-
 ```{r}
-plot(rf)
+data.negative <- data %>%
+  mutate(rating.level = case_when(rating.level == "Negative" ~ 1,
+                             TRUE ~ 0)) %>%
+  select(-c(coffee_shop_name, full_review_text, star_rating, rating, anyword))
 
-hist(treesize(rf),
-     main = "No. of Nodes for the Trees",
-     col = "green")
-varImpPlot(rf,
-           sort = T,
-           n.var = 20,
-           main = "Top 20 - Variable Importance")
-importance(rf)
+data.neutral <- data %>%
+  mutate(rating.level = case_when(rating.level == "Neutral" ~ 1,
+                             TRUE ~ 0)) %>%
+  select(-c(coffee_shop_name, full_review_text, star_rating, rating, anyword))
 
-
+data.positive <- data %>%
+  mutate(rating.level = case_when(rating.level == "Positive" ~ 1,
+                             TRUE ~ 0)) %>%
+  select(-c(coffee_shop_name, full_review_text, star_rating, rating, anyword))
 ```
+
+
 ```{r}
-imp <- varImp(rf)
-impvar <- rownames(imp)[order(imp[, 1], decreasing=TRUE)]
-impvar <- impvar[1:10]
+model.negative <- glm(rating.level ~ ., data = data.negative, family = binomial)
+tidy.negative <- tidy(model.negative)
+model.neutral <- glm(rating.level ~ ., data = data.neutral, family = binomial)
+tidy.neutral <- tidy(model.neutral)
+model.positive <- glm(rating.level ~ ., data = data.positive, family = binomial)
+tidy.positive <- tidy(model.positive)
+
+rbind(tidy.negative, tidy.neutral, tidy.positive) %>%
+  group_by(term) %>%
+  dplyr::select(-statistic) %>% # should we report the og.p.value
+  filter(p.value < 0.05)  %>%
+  mutate(across(where(is.numeric), ~ round(.x, digits = 3))) %>%
+  mutate(p.value = ifelse(p.value < 0.001, "<0.001", sprintf("%0.3f", p.value))) %>%
+  select(term, estimate, std.error, p.value) %>%
+  kable(format = "latex", booktabs = T, longtable = T,
+      col.names = c("Term", "Estimate", "Standard Error",
+                      "P-Value"),
+      digits = 3, centering = FALSE,
+      align = "lrrr") %>%
+  row_spec(0, bold = TRUE) %>%
+  pack_rows("Negative Model", 1, 26, bold = T) %>%
+  pack_rows("Neutral Model", 27, 48, bold = T) %>%
+  pack_rows("Positive Model", 49, 61, bold = T) %>%
+  kable_styling(latex_options = c("repeat_header"))
+```
+ pack_rows("Negative Model", 1, 26, bold = T) %>%
+  pack_rows("Neutral Model", 27, 48, bold = T) %>%
+  pack_rows("Positive Model", 49, 61, bold = T) %>%
+```{r,echo=FALSE, include=FALSE, warning=FALSE}
+data.multi <- data %>%
+  select(-c(coffee_shop_name, full_review_text, star_rating, rating, anyword))
+model.multi <- multinom(rating.level ~ .,  data = data.multi)
 
 
-for (i in seq_along(impvar)) {
-    partialPlot(rf, train, impvar[i], xlab=impvar[i],
-                main=paste("Partial Dependence on", impvar[i]))
-}
-
-
+tidy(model.multi, conf.int = TRUE, conf.level = 0.95) %>%
+  dplyr::select(-statistic) %>%
+  filter(p.value < 0.05)  %>%
+  mutate(across(where(is.numeric), ~ round(.x, digits = 3))) %>%
+  mutate(p.value = ifelse(p.value < 0.001, "<0.001", sprintf("%0.3f", p.value))) %>%
+  kable(format = "latex", booktabs = T, linesep = "", longtable = T, 
+        digits = 3) %>%
+  kable_styling(latex_options = c("repeat_header"))
 ```
 
 
 ```{r}
 data %>%
-  group_by(rating) %>%
+  group_by(rating.level) %>%
   summarise(n = n(),
-            avg.length = mean(length),
-            excl = mean(num.exclamations),
-            place = mean(place),
-            great = mean(great),
-            coffee = mean(coffee),
-            quest = mean(num.questions),
-            try = mean(try),
-            checkin = mean(checkin),
-            friend = mean(friend),
-            get = mean(get)
+            love = sum(love)
             ) 
-
 ```
 
 
